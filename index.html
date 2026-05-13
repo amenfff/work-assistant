@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工作助手</title>
+<script src="https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f5f5f0;
+    color: #1a1a1a;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  header h1 { font-size: 18px; font-weight: 500; color: #1a1a1a; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .sync-indicator { font-size: 11px; color: #aaa; display: inline-flex; align-items: center; gap: 4px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #ccc; display: inline-block; }
+  .sync-dot.syncing { background: #f0ad4e; animation: pulse 1s infinite; }
+  .sync-dot.ok { background: #5cb85c; }
+  .sync-dot.error { background: #c0392b; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .date-text { font-size: 13px; color: #888; }
+  .user-name { font-size: 12px; color: #888; background: #f0eeea; padding: 2px 8px; border-radius: 10px; }
+  .btn-logout {
+    padding: 4px 12px; border: 0.5px solid rgba(0,0,0,0.15);
+    border-radius: 6px; font-size: 12px; font-family: inherit;
+    background: #fff; color: #888; cursor: pointer;
+  }
+  .btn-logout:hover { background: #f5f5f0; color: #555; }
+  .login-wrap {
+    display: flex; align-items: center; justify-content: center; min-height: 80vh;
+  }
+  .login-box {
+    background: #fff; border-radius: 16px; border: 0.5px solid rgba(0,0,0,0.08);
+    padding: 40px 32px; width: 340px; text-align: center;
+  }
+  .login-box h1 { font-size: 20px; font-weight: 500; margin-bottom: 8px; }
+  .login-box .sub { font-size: 13px; color: #888; margin-bottom: 28px; }
+  .login-input {
+    width: 100%; padding: 10px 12px; border: 0.5px solid rgba(0,0,0,0.15);
+    border-radius: 8px; font-size: 14px; font-family: inherit;
+    background: #fafaf8; color: #1a1a1a; outline: none; margin-bottom: 10px;
+  }
+  .login-input:focus { border-color: rgba(0,0,0,0.35); background: #fff; }
+  .login-btn {
+    width: 100%; padding: 12px; background: #1a1a1a; color: #fff; border: none;
+    border-radius: 10px; font-size: 15px; font-family: inherit; cursor: pointer;
+    font-weight: 400; transition: background 0.15s;
+  }
+  .login-btn:hover { background: #333; }
+  .login-btn:disabled { background: #ccc; cursor: not-allowed; }
+  .login-err { color: #c0392b; font-size: 12px; margin-top: 10px; min-height: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 24px; }
+  .stat-card {
+    background: #fff; border-radius: 10px; border: 0.5px solid rgba(0,0,0,0.08);
+    padding: 14px 16px; text-align: center;
+  }
+  .stat-card .num { font-size: 22px; font-weight: 500; color: #1a1a1a; }
+  .stat-card .label { font-size: 12px; color: #888; margin-top: 2px; }
+  .input-area {
+    background: #fff; border-radius: 12px; border: 0.5px solid rgba(0,0,0,0.08);
+    padding: 16px; margin-bottom: 20px;
+  }
+  .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .input-row input[type="text"] {
+    flex: 1; padding: 9px 12px; border: 0.5px solid rgba(0,0,0,0.15);
+    border-radius: 8px; font-size: 14px; font-family: inherit;
+    background: #fafaf8; outline: none; color: #1a1a1a;
+  }
+  .input-row input[type="text"]:focus { border-color: rgba(0,0,0,0.35); background: #fff; }
+  .meta-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .meta-row input[type="date"] {
+    padding: 7px 10px; border: 0.5px solid rgba(0,0,0,0.15); border-radius: 8px;
+    font-size: 13px; font-family: inherit; background: #fafaf8; color: #1a1a1a; outline: none;
+  }
+  .tag-input, .cat-input {
+    padding: 7px 10px; border: 0.5px solid rgba(0,0,0,0.15); border-radius: 8px;
+    font-size: 13px; font-family: inherit; background: #fafaf8; color: #1a1a1a; outline: none;
+  }
+  .cat-input { width: 110px; }
+  .tag-input { flex: 1; min-width: 80px; }
+  .btn-add {
+    padding: 9px 20px; background: #1a1a1a; color: #fff; border: none;
+    border-radius: 8px; font-size: 14px; font-family: inherit; cursor: pointer;
+    white-space: nowrap; font-weight: 400;
+  }
+  .btn-add:hover { background: #333; }
+  .filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-btn {
+    padding: 5px 13px; border: 0.5px solid rgba(0,0,0,0.15); border-radius: 20px;
+    font-size: 13px; font-family: inherit; background: #fff; color: #555;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .filter-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .filter-btn:hover:not(.active) { border-color: rgba(0,0,0,0.35); color: #1a1a1a; }
+  .search-box {
+    margin-left: auto; padding: 5px 12px; border: 0.5px solid rgba(0,0,0,0.15);
+    border-radius: 20px; font-size: 13px; font-family: inherit; background: #fff;
+    color: #1a1a1a; outline: none; width: 160px;
+  }
+  .search-box:focus { border-color: rgba(0,0,0,0.35); }
+  .task-list { display: flex; flex-direction: column; gap: 12px; }
+  .group-card {
+    background: #fff; border-radius: 12px; border: 0.5px solid rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  .group-header {
+    display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+    cursor: pointer; user-select: none; transition: background 0.12s;
+  }
+  .group-header:hover { background: #fafaf8; }
+  .group-arrow {
+    width: 16px; height: 16px; flex-shrink: 0; transition: transform 0.2s;
+    color: #aaa; font-size: 12px; display: flex; align-items: center; justify-content: center;
+  }
+  .group-arrow.collapsed { transform: rotate(-90deg); }
+  .group-name { font-size: 15px; font-weight: 500; flex: 1; }
+  .group-count { font-size: 12px; color: #aaa; background: #f0eeea; padding: 1px 8px; border-radius: 10px; }
+  .group-date { font-size: 12px; color: #ccc; }
+  .group-body { transition: max-height 0.25s ease; overflow: hidden; }
+  .group-body.collapsed { max-height: 0 !important; }
+  .group-tasks { display: flex; flex-direction: column; gap: 0; }
+  .group-tasks .task-item { border-radius: 0; border: none; border-top: 0.5px solid rgba(0,0,0,0.06); }
+  .group-tasks .task-item:first-child { border-top: none; }
+  .task-item {
+    background: #fff; border-radius: 10px; border: 0.5px solid rgba(0,0,0,0.08);
+    padding: 12px 16px; display: flex; align-items: flex-start; gap: 12px; transition: opacity 0.15s;
+  }
+  .task-item:hover { background: #fcfcfa; }
+  .task-item.done { opacity: 0.45; }
+  .task-item.done .task-title { text-decoration: line-through; color: #aaa; }
+  .checkbox {
+    width: 18px; height: 18px; border: 1.5px solid rgba(0,0,0,0.2); border-radius: 5px;
+    flex-shrink: 0; cursor: pointer; margin-top: 1px; display: flex;
+    align-items: center; justify-content: center; transition: all 0.15s; background: #fff;
+  }
+  .checkbox.checked { background: #1a1a1a; border-color: #1a1a1a; }
+  .checkbox.checked::after {
+    content: ''; width: 10px; height: 6px; border-left: 1.5px solid #fff;
+    border-bottom: 1.5px solid #fff; transform: rotate(-45deg) translateY(-1px); display: block;
+  }
+  .task-body { flex: 1; min-width: 0; }
+  .task-title { font-size: 14px; color: #1a1a1a; font-weight: 400; margin-bottom: 4px; word-break: break-all; }
+  .task-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tag-badge { font-size: 11px; padding: 1px 7px; border-radius: 4px; background: #f0eeea; color: #555; }
+  .due-date { font-size: 12px; color: #aaa; }
+  .due-date.overdue { color: #c0392b; }
+  .date-info { font-size: 11px; color: #ccc; }
+  .date-info .updated { color: #b0a898; }
+  .task-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .btn-icon {
+    width: 28px; height: 28px; border: none; background: transparent; cursor: pointer;
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    color: #bbb; font-size: 14px; transition: all 0.15s; padding: 0;
+  }
+  .btn-icon:hover { background: #f0f0ec; color: #555; }
+  .btn-icon.danger:hover { background: #fdeaea; color: #c0392b; }
+  .btn-icon.edit:hover { background: #eef2fb; color: #378add; }
+  .empty-state { text-align: center; padding: 48px 20px; color: #aaa; font-size: 14px; }
+  .empty-state p:first-child { font-size: 28px; margin-bottom: 8px; }
+  .edit-inline { display: none; flex: 1; gap: 6px; align-items: center; }
+  .edit-inline input {
+    flex: 1; padding: 6px 10px; border: 0.5px solid rgba(0,0,0,0.25); border-radius: 6px;
+    font-size: 13px; font-family: inherit; background: #fff; color: #1a1a1a; outline: none;
+  }
+  .edit-inline .btn-sm {
+    padding: 5px 10px; border: none; border-radius: 6px; font-size: 12px;
+    font-family: inherit; cursor: pointer; background: #1a1a1a; color: #fff;
+  }
+  .edit-inline .btn-sm.cancel { background: #f0eeea; color: #555; }
+  .editing .task-title { display: none; }
+  .editing .task-meta { display: none; }
+  .editing .edit-inline { display: flex; }
+  .loading-mask {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.6); display: none;
+    align-items: center; justify-content: center; z-index: 999;
+    font-size: 14px; color: #888;
+  }
+  .loading-mask.show { display: flex; }
+  @media (max-width: 480px) {
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .meta-row { flex-wrap: wrap; }
+    .search-box { width: 120px; }
+    header { flex-direction: column; gap: 4px; }
+    .cat-input { width: 90px; }
+    .login-box { margin: 0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-mask" id="loading-mask">正在连接云端...</div>
+
+<!-- Login Page -->
+<div id="login-page" class="login-wrap" style="display:none;">
+  <div class="login-box">
+    <h1>工作助手</h1>
+    <p class="sub">数据存储在云端，多设备同步</p>
+    <input type="text" class="login-input" id="inp-user" placeholder="用户名" maxlength="30">
+    <input type="password" class="login-input" id="inp-pass" placeholder="密码" maxlength="30">
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="login-btn" id="btn-login" onclick="doLogin()" style="flex:1;">登录</button>
+      <button class="login-btn" id="btn-register" onclick="doRegister()" style="flex:1;background:#555;">注册</button>
+    </div>
+    <div id="login-err" class="login-err"></div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="main-app" class="container" style="display:none;">
+  <header>
+    <h1>工作助手</h1>
+    <div class="header-right">
+      <span class="user-name" id="user-name"></span>
+      <span class="sync-indicator" id="sync-status">
+        <span class="sync-dot ok" id="sync-dot"></span>
+        <span id="sync-text">已同步</span>
+      </span>
+      <span class="date-text" id="date-display"></span>
+      <button class="btn-logout" onclick="doLogout()">退出</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat-card"><div class="num" id="stat-total">0</div><div class="label">全部</div></div>
+    <div class="stat-card"><div class="num" id="stat-todo">0</div><div class="label">待处理</div></div>
+    <div class="stat-card"><div class="num" id="stat-done">0</div><div class="label">已完成</div></div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-row">
+      <input type="text" id="task-input" placeholder="记录一件事情……" maxlength="200">
+      <button class="btn-add" onclick="addTask()">添加</button>
+    </div>
+    <div class="meta-row">
+      <input type="text" class="cat-input" id="cat-input" placeholder="分类" maxlength="20">
+      <input type="date" id="due-date-input" title="截止日期">
+      <input type="text" class="tag-input" id="tag-input" placeholder="标签（空格分隔）" maxlength="50">
+    </div>
+  </div>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFilter('all', this)">全部</button>
+    <button class="filter-btn" onclick="setFilter('todo', this)">待处理</button>
+    <button class="filter-btn" onclick="setFilter('done', this)">已完成</button>
+    <input type="text" class="search-box" id="search-input" placeholder="搜索……" oninput="renderTasks()">
+  </div>
+
+  <div class="task-list" id="task-list"></div>
+</div>
+
+<!-- Load modules -->
+<script src="js/utils.js"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

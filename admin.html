@@ -97,13 +97,8 @@
 // 修改这里的密码为你自己的管理密码
 const ADMIN_PASSWORD = 'WQQWQQWQQ';
 
-let _db = null;
-let _authUid = null;
-
 async function init() {
-  const { db, authUid } = await initDB();
-  _db = db;
-  _authUid = authUid;
+  await initDB();
 }
 
 function verifyAdmin() {

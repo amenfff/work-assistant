@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理员 - 工作助手</title>
+<script src="https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f5f5f0;
+    color: #1a1a1a;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 24px; text-align: center; }
+  .card {
+    background: #fff; border-radius: 12px;
+    border: 0.5px solid rgba(0,0,0,0.08);
+    padding: 24px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 15px; font-weight: 500; margin-bottom: 16px; }
+  input {
+    width: 100%; padding: 10px 12px;
+    border: 0.5px solid rgba(0,0,0,0.15); border-radius: 8px;
+    font-size: 14px; font-family: inherit;
+    background: #fafaf8; color: #1a1a1a; outline: none;
+    margin-bottom: 10px;
+  }
+  input:focus { border-color: rgba(0,0,0,0.35); background: #fff; }
+  button {
+    width: 100%; padding: 12px;
+    background: #1a1a1a; color: #fff; border: none;
+    border-radius: 10px; font-size: 15px; font-family: inherit;
+    cursor: pointer; font-weight: 400;
+  }
+  button:hover { background: #333; }
+  button:disabled { background: #ccc; cursor: not-allowed; }
+  .msg { font-size: 12px; margin-top: 10px; min-height: 16px; }
+  .msg.ok { color: #5cb85c; }
+  .msg.err { color: #c0392b; }
+  .user-list { margin-top: 12px; }
+  .user-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 0.5px solid rgba(0,0,0,0.06);
+    font-size: 14px;
+  }
+  .user-item:last-child { border-bottom: none; }
+  .user-item button {
+    width: auto; padding: 4px 12px; font-size: 12px; border-radius: 6px;
+    background: #c0392b;
+  }
+  .user-item button:hover { background: #a93226; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>管理员后台</h1>
+
+  <!-- Step 1: Verify admin password -->
+  <div class="card" id="step-verify">
+    <h2>验证管理密码</h2>
+    <input type="password" id="admin-pass" placeholder="管理密码" maxlength="30">
+    <button onclick="verifyAdmin()">进入</button>
+    <div id="verify-msg" class="msg err"></div>
+  </div>
+
+  <!-- Step 2: Create account -->
+  <div class="card hidden" id="step-create">
+    <h2>创建新账号</h2>
+    <input type="text" id="new-user" placeholder="用户名" maxlength="30">
+    <input type="password" id="new-pass" placeholder="密码（至少4位）" maxlength="30">
+    <button onclick="createAccount()">创建账号</button>
+    <div id="create-msg" class="msg"></div>
+  </div>
+
+  <!-- Step 3: User list -->
+  <div class="card hidden" id="step-list">
+    <h2>已有账号</h2>
+    <div class="user-list" id="user-list"></div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/db.js"></script>
+<script>
+// ===== Admin config =====
+// 修改这里的密码为你自己的管理密码
+const ADMIN_PASSWORD = 'wa2026admin';
+
+let _db = null;
+let _authUid = null;
+
+async function init() {
+  const { db, authUid } = await initDB();
+  _db = db;
+  _authUid = authUid;
+}
+
+function verifyAdmin() {
+  const pass = document.getElementById('admin-pass').value;
+  const msgEl = document.getElementById('verify-msg');
+  if (pass !== ADMIN_PASSWORD) {
+    msgEl.textContent = '管理密码错误';
+    return;
+  }
+  msgEl.textContent = '';
+  document.getElementById('step-verify').classList.add('hidden');
+  document.getElementById('step-create').classList.remove('hidden');
+  document.getElementById('step-list').classList.remove('hidden');
+  loadUsers();
+}
+
+async function createAccount() {
+  const userEl = document.getElementById('new-user');
+  const passEl = document.getElementById('new-pass');
+  const msgEl = document.getElementById('create-msg');
+  const username = userEl.value.trim();
+  const password = passEl.value;
+
+  msgEl.className = 'msg';
+  msgEl.textContent = '';
+
+  if (!username) { msgEl.textContent = '请输入用户名'; msgEl.className = 'msg err'; return; }
+  if (!password) { msgEl.textContent = '请输入密码'; msgEl.className = 'msg err'; return; }
+  if (password.length < 4) { msgEl.textContent = '密码至少4位'; msgEl.className = 'msg err'; return; }
+  if (!_db) { msgEl.textContent = '数据库未连接'; msgEl.className = 'msg err'; return; }
+
+  try {
+    // Check existing
+    const res = await _db.collection('users').where({ username }).limit(1).get();
+    if (res.data && res.data.length > 0) {
+      msgEl.textContent = '用户名已存在';
+      msgEl.className = 'msg err';
+      return;
+    }
+
+    const hashed = await hashPwd(password);
+    const now = Date.now();
+    await _db.collection('users').add({
+      username: username,
+      password: hashed,
+      authUid: _authUid || '',
+      createdAt: now,
+      updatedAt: now
+    });
+
+    msgEl.textContent = '账号创建成功';
+    msgEl.className = 'msg ok';
+    userEl.value = '';
+    passEl.value = '';
+    loadUsers();
+  } catch (e) {
+    console.error(e);
+    msgEl.textContent = '创建失败: ' + (e.message || e);
+    msgEl.className = 'msg err';
+  }
+}
+
+async function loadUsers() {
+  const listEl = document.getElementById('user-list');
+  if (!_db) { listEl.innerHTML = '<div class="user-item">数据库未连接</div>'; return; }
+  try {
+    const res = await _db.collection('users').limit(100).get();
+    const users = res.data || [];
+    if (users.length === 0) {
+      listEl.innerHTML = '<div class="user-item" style="color:#aaa;">暂无账号</div>';
+      return;
+    }
+    listEl.innerHTML = users.map(u => `
+      <div class="user-item">
+        <span>${u.username}</span>
+        <button onclick="deleteUser('${u._id}', '${u.username}')">删除</button>
+      </div>
+    `).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div class="user-item" style="color:#c0392b;">加载失败</div>';
+  }
+}
+
+async function deleteUser(id, username) {
+  if (!confirm('确定删除账号 "' + username + '"？该账号的任务也会被删除。')) return;
+  if (!_db) return;
+  try {
+    // Delete user's tasks first
+    const tasksRes = await _db.collection('tasks').where({ username }).get();
+    for (const t of (tasksRes.data || [])) {
+      await _db.collection('tasks').doc(t._id).remove();
+    }
+    // Delete user
+    await _db.collection('users').doc(id).remove();
+    loadUsers();
+  } catch (e) {
+    alert('删除失败: ' + (e.message || e));
+  }
+}
+
+init();
+</script>
+</body>
+</html>

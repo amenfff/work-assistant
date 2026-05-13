@@ -75,7 +75,7 @@ async function doLogin() {
     }
 
     if (!userRecord) {
-      errEl.textContent = '用户名不存在，请先注册';
+      errEl.textContent = '账号不存在，请联系管理员开通';
       btn.disabled = false; btn.textContent = '登录';
       return;
     }

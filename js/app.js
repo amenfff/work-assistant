@@ -31,8 +31,6 @@ async function init() {
 document.getElementById('task-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') addTask(); });
 document.getElementById('inp-user').addEventListener('keydown', function(e) { if (e.key === 'Enter') document.getElementById('inp-pass').focus(); });
 document.getElementById('inp-pass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
-// Register button Enter key
-document.getElementById('btn-register').addEventListener('keydown', function(e) { if (e.key === 'Enter') doRegister(); });
 
 // Start
 init();
